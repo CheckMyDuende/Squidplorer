@@ -76,7 +76,22 @@ function Player:new(area, x, y, opts)
     -- Add tails
     self.tails = {}
     for i = 1, 8 do
-        table.insert(self.tails, self.area:addGameObject('Tail', 1, self.x, self.y + self.height/2, {body = self, angle = self.angle}))
+        table.insert(self.tails, self.area:addGameObject(
+            'Tail', 
+            1, self.x, 
+            self.y, 
+            {body = self, angle = self.angle, lineWidth = 2, length = 128}
+            )
+        )
+    end
+    for i = -1, 1, 2 do
+        table.insert(self.tails, self.area:addGameObject(
+            'Tail', 
+            1, self.x, 
+            self.y, 
+            {body = self, angle = self.angle, lineWidth = 5, length = 196, offsetX = i * (self.width / 2)}
+            )
+        )
     end
 
     -- Bind inputs for the player
