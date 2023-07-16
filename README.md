@@ -11,6 +11,7 @@
 - improve/fix player movement
 - improve squid "sprite" (triangles on the side?)
 - add cool sine tentacles
+- shader for ink
 
 #### How to run:
 - install Lua 5.3.6 (https://luabinaries.sourceforge.net/download.html)

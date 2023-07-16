@@ -4,11 +4,12 @@ _G.M = require "lib.moses.moses"
 _G.Object = require "lib.classic.classic"
 _G.Input = require "lib.boipushy.Input"
 _G.Timer = require "lib.hump.timer"
-_G.Camera = require "lib.hump.camera" -- TODO: Artem: do we need camera for scrolling?
+_G.Camera = require "lib.hump.camera" -- TODO: do we need camera for scrolling?
 
 require("objects.game_object")
 require("objects.player")
 require("objects.ink")
+require("objects.tail")
 require("rooms.main_room")
 
 function love.load()

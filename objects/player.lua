@@ -5,8 +5,11 @@ function Player:new(area, x, y, opts)
 
     -- Initialize properties
     self.width = 32
-    self.height = 64
+    self.height = 128
     self.angle = 0 -- in radians
+
+    -- Initialize shape
+    self.wingOffsetX, self.wingOffsetY = 10, 5
     self.vertices = {
         -self.width/2, self.height/2, -- lower left
         self.width/2, self.height/2, -- lower right
@@ -14,18 +17,51 @@ function Player:new(area, x, y, opts)
     }
     self.outlineWidth = 10
     self.outlineVertices = {
-        self.vertices[1] - self.outlineWidth, self.vertices[2] + self.outlineWidth,
-        self.vertices[3] + self.outlineWidth, self.vertices[4] + self.outlineWidth,
-        self.vertices[5], self.vertices[6] - self.outlineWidth,
+        self.vertices[1] - self.outlineWidth, self.vertices[2] + self.outlineWidth, -- lower left
+        self.vertices[3] + self.outlineWidth, self.vertices[4] + self.outlineWidth, -- lower right
+        self.vertices[5], self.vertices[6] - self.outlineWidth -- upper center
     }
+
+    -- Initialize wings
+    local wingLeftAttachVertexX, wingLeftAttachVertexY = self.outlineVertices[5] + 0.7 * (self.outlineVertices[1] - self.outlineVertices[5]), self.outlineVertices[6] + 0.7 * (self.outlineVertices[2] - self.outlineVertices[6])
+    self.wingLeftVertices = {
+        wingLeftAttachVertexX, wingLeftAttachVertexY, 
+        wingLeftAttachVertexX - self.wingOffsetX, wingLeftAttachVertexY - self.wingOffsetY,  
+        self.outlineVertices[5], self.outlineVertices[6]
+    }
+    local wingRightAttachVertexX, wingRightAttachVertexY = self.outlineVertices[5] + 0.7 * (self.outlineVertices[3] - self.outlineVertices[5]), self.outlineVertices[6] + 0.7 * (self.outlineVertices[4] - self.outlineVertices[6])
+    self.wingRightVertices = {
+        wingRightAttachVertexX, wingRightAttachVertexY,
+        wingRightAttachVertexX + self.wingOffsetX, wingRightAttachVertexY - self.wingOffsetY,  
+        self.outlineVertices[5], self.outlineVertices[6]
+    }
+
+    -- Initialize eyes
+    self.eyeLeftX = wingLeftAttachVertexX
+    self.eyeLeftY = wingLeftAttachVertexY
+    self.eyeRightX = wingRightAttachVertexX
+    self.eyeRightY = wingRightAttachVertexY
+    self.eyeRadius = 5
 
     -- Initialize physics
     self.body = love.physics.newBody(self.area.world, self.x, self.y, 'dynamic')
     self.body:setMass(10)
     self.shape = love.physics.newPolygonShape(self.vertices)
-    self.outlineShape = love.physics.newPolygonShape(self.outlineVertices)
     self.fixture = love.physics.newFixture(self.body, self.shape)
+
+    self.outlineShape = love.physics.newPolygonShape(self.outlineVertices)
+    self.wingLeftShape = love.physics.newPolygonShape(self.wingLeftVertices)
+    self.wingRightShape = love.physics.newPolygonShape(self.wingRightVertices)
     
+    -- self.eyeLeftBody = love.physics.newBody(self.area.world, self.eyeLeftX, self.eyeLeftY, 'dynamic')
+    -- self.eyeLeftShape = love.physics.newCircleShape(self.eyeLeftX, self.eyeLeftY, self.eyeRadius)
+    -- self.eyeLeftFixture = love.physics.newFixture(self.eyeLeftBody, self.eyeLeftShape)
+    -- self.eyeLeftJoint = love.physics.newDistanceJoint(self.body, self.eyeLeftBody, 0, 0, 0, 0)
+    -- self.eyeRightBody = love.physics.newBody(self.area.world, self.eyeRightX, self.eyeRightY, 'dynamic')
+    -- self.eyeRightShape = love.physics.newCircleShape(self.eyeRightX, self.eyeRightY, self.eyeRadius)
+    -- self.eyeRightFixture = love.physics.newFixture(self.eyeRightBody, self.eyeRightShape)
+    -- self.eyeRightJoint = love.physics.newDistanceJoint(self.body, self.eyeRightBody, 0, 0, 0, 0)
+
     -- Initilize movement impulses
     self.jumpImpulseX = 300
     self.jumpImpulseY = 50
@@ -36,6 +72,12 @@ function Player:new(area, x, y, opts)
 
     -- Add Blob manager
     self.blobs = self.area:addGameObject('BlobParticleSystem', 0)
+
+    -- Add tails
+    self.tails = {}
+    for i = 1, 8 do
+        table.insert(self.tails, self.area:addGameObject('Tail', 1, self.x, self.y + self.height/2, {body = self, angle = self.angle}))
+    end
 
     -- Bind inputs for the player
     input:bind('right', 'rotateRight')
@@ -64,6 +106,9 @@ function Player:rotateRight()
     --     self.timer:cancel(self.leftRotation)
     --     self.leftRotation = nil
     -- end
+    for i, tail in pairs(self.tails) do
+        tail:rotate()
+    end
     if self.cancelRotation then
         self.timer:cancel(self.cancelRotation)
         self.cancelRotation = nil
@@ -76,10 +121,14 @@ function Player:rotateLeft()
     --     self.timer:cancel(self.rightRotation)
     --     self.rightRotation = nil
     -- end
+    for i, tail in pairs(self.tails) do
+        tail:rotate()
+    end
     if self.cancelRotation then
         self.timer:cancel(self.cancelRotation)
         self.cancelRotation = nil
     end
+
 end
 
 function Player:rotateBack()
@@ -90,6 +139,9 @@ function Player:rotateBack()
         if self.leftRotation then
             self.leftRotation = self.timer:tween(0.2, self, {angle = -self.maxAngle}, 'out-cubic')
         end
+        for i, tail in pairs(self.tails) do
+            tail:rotateBack()
+        end
     end
 
     if self.leftRotation and (input:released('rotateRight') or input:released('rotateLeft')) then
@@ -99,7 +151,11 @@ function Player:rotateBack()
         if self.rightRotation then
             self.rightRotation = self.timer:tween(0.2, self, {angle = -self.maxAngle}, 'out-cubic')
         end
+        for i, tail in pairs(self.tails) do
+            tail:rotateBack()
+        end
     end
+
 end
 
 function Player:jump()
@@ -117,24 +173,7 @@ function Player:jump()
     )
 
     -- Spawn particles
-    self.blobs:spawnBlobs(self.x, self.y)
-    -- local numBlobs = love.math.random(7, 10)
-    -- for i = 1, numBlobs do
-    --     local speedX = 4 * (love.math.random() - 0.5)
-    --     local speedY = 0.5 * love.math.random() + 3
-    --     self.area:addGameObject(
-    --         'Blob',
-    --         1,
-    --         self.x, 
-    --         self.y,
-    --         {
-    --             speedX = speedX,
-    --             speedY = speedY,
-    --             innerColor = self.inkInnerColor,
-    --             outerColor = self.inkOuterColor
-    --         }
-    --     )
-    -- end
+    self.blobs:spawnBlobs(self.x - math.sin(self.angle) * self.height/2, self.y + math.cos(self.angle) * self.height/2)
 end
 
 function Player:update(dt)
@@ -145,7 +184,7 @@ function Player:update(dt)
     self.x, self.y = self.body:getPosition()
 
     -- Stay near vertical center
-    self:stayAtY(0.05)
+    self:stayAtY(0.03)
     
     -- Handle jump input
     if input:pressed('jump') then
@@ -171,6 +210,44 @@ function Player:draw()
         'fill',
         self.body:getWorldPoints(self.outlineShape:getPoints())
     )
+
+    -- Draw wings
+    love.graphics.polygon(
+        'fill',
+        self.body:getWorldPoints(self.wingLeftShape:getPoints())
+    )
+    love.graphics.polygon(
+        'fill',
+        self.body:getWorldPoints(self.wingRightShape:getPoints())
+    )
+
+    -- Draw eyes
+    -- love.graphics.setColor({22/255, 38/255, 76/255})
+    -- love.graphics.circle(
+    --     'fill',
+    --     self.eyeLeftBody:getX(), 
+    --     self.eyeLeftBody:getY(),
+    --     self.eyeRadius + 2
+    -- )
+    -- love.graphics.circle(
+    --     'fill',
+    --     self.eyeRightBody:getX(), 
+    --     self.eyeRightBody:getY(),
+    --     self.eyeRadius + 2
+    -- )
+    -- love.graphics.setColor(1, 1, 1)
+    -- love.graphics.circle(
+    --     'fill',
+    --     self.eyeLeftBody:getX(), 
+    --     self.eyeLeftBody:getY(),
+    --     self.eyeRadius
+    -- )
+    -- love.graphics.circle(
+    --     'fill',
+    --     self.eyeRightBody:getX(), 
+    --     self.eyeRightBody:getY(),
+    --     self.eyeRadius
+    -- )
 
     -- Draw main body
     love.graphics.setColor(1, 1, 1)
